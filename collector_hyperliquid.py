@@ -1,66 +1,90 @@
 import asyncio
 import aiohttp
 import psycopg2
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 # Database connection config
 DB_CONFIG = {
     'dbname': 'market_data',
-    'user': 'your_user',
-    'password': 'your_password',
+    'user': 'postgres',
+    'password': 'developmentPassword',
     'host': 'localhost',
     'port': 5432
 }
 
 # Collection settings
-SYMBOLS = ['BTC-USD', 'ETH-USD', 'SOL-USD']  # Update with Hyperliquid format when ready
-COLLECTION_INTERVAL = 10  # seconds
+SYMBOLS = ['BTC', 'ETH', 'SOL']  # Update with Hyperliquid format when ready
+COLLECTION_INTERVAL = 60  # seconds
 
 
 class HyperliquidCollector:
     def __init__(self):
         self.exchange_name = 'hyperliquid'
-        self.base_url = 'https://api.hyperliquid.xyz'  # Placeholder - update with real URL
+        self.base_url = 'https://api.hyperliquid.xyz'
         
-    async def fetch_market_data(self, session, symbol):
+    async def fetch_market_data(self, session):
         """
-        Fetch market data for a symbol from Hyperliquid API
-        
-        TODO: Update with actual Hyperliquid API endpoints
+        Fetch market data from Hyperliquid API
+        Note: Hyperliquid returns data for all symbols in one call
         """
         try:
-            # Placeholder for API call - we'll fill this in with real endpoints
-            # async with session.get(f'{self.base_url}/endpoint?symbol={symbol}') as response:
-            #     data = await response.json()
-            #     return self.parse_response(data, symbol)
-            
-            # For now, return None - we'll implement this once you provide the API details
-            print(f"Fetching data for {symbol} from {self.exchange_name}")
-            return None
-            
+            headers = {'Content-Type': 'application/json'}
+            payload = {'type': 'metaAndAssetCtxs'}
+
+            async with session.post(f'{self.base_url}/info',
+                                  json=payload,
+                                  headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return self.parse_response(data)
+                else:
+                    print(f"API error: {response.status}")
+                    return None
+
         except Exception as e:
-            print(f"Error fetching {symbol}: {e}")
+            print(f"Error fetching market data: {e}")
             return None
     
-    def parse_response(self, data, symbol):
+    def parse_response(self, data):
         """
-        Parse API response into our data model
-        
-        TODO: Update based on actual Hyperliquid API response structure
+        Parse Hyperliquid API response into our data model
+        Returns dict of market data for all symbols
         """
-        # This will be filled in based on the actual API response format
-        return {
-            'time': datetime.utcnow(),
-            'exchange': self.exchange_name,
-            'symbol': symbol,
-            'price': None,  # Extract from data
-            'volume_24h': None,
-            'open_interest': None,
-            'funding_rate': None,
-            'bid': None,
-            'ask': None
-        }
+        if not data or len(data) < 2:
+            return {}
+
+        universe = data[0]['universe']
+        market_data = data[1]
+
+        results = dict()
+        current_time = datetime.now(timezone.utc)
+
+        for i, symbol_info in enumerate(universe):
+            if i >= len(market_data):
+                continue
+
+            symbol_name = symbol_info['name']
+            market_info = market_data[i]
+
+            # Extract bid/ask from impact prices
+            bid = Decimal(market_info['impactPxs'][0]) if market_info.get('impactPxs') else None
+            ask = Decimal(market_info['impactPxs'][1]) if market_info.get('impactPxs') and len(market_info['impactPxs']) > 1 else None
+
+            result = {
+                'time': current_time,
+                'exchange': self.exchange_name,
+                'symbol': symbol_name,
+                'price': Decimal(market_info['markPx']) if market_info.get('markPx') else None,
+                'volume_24h': Decimal(market_info['dayNtlVlm']) if market_info.get('dayNtlVlm') else None,
+                'open_interest': Decimal(market_info['openInterest']) if market_info.get('openInterest') else None,
+                'funding_rate': Decimal(market_info['funding']) if market_info.get('funding') else None,
+                'bid': bid,
+                'ask': ask
+            }
+            results[symbol_name] = result
+
+        return results
 
 
 class DatabaseWriter:
@@ -118,16 +142,18 @@ class DatabaseWriter:
             print("Database connection closed")
 
 
-async def collect_data(collector, db_writer, symbols):
-    """Collect data for all symbols"""
+async def collect_data(collector, db_writer):
+    """Collect data for all symbols from Hyperliquid"""
     async with aiohttp.ClientSession() as session:
-        tasks = [collector.fetch_market_data(session, symbol) for symbol in symbols]
-        results = await asyncio.gather(*tasks)
-        
+        # Hyperliquid returns all symbols in one API call
+        results = await collector.fetch_market_data(session)
+
         # Insert results into database
-        for result in results:
-            if result:
-                db_writer.insert_market_data(result)
+        if results:
+            for symbol in SYMBOLS:
+                result = results.get(symbol)
+                if result:
+                    db_writer.insert_market_data(result)
 
 
 async def main():
@@ -138,12 +164,12 @@ async def main():
     try:
         db_writer.connect()
         
-        print(f"Starting data collection for {len(SYMBOLS)} symbols")
+        print(f"Starting data collection from Hyperliquid")
         print(f"Collection interval: {COLLECTION_INTERVAL} seconds")
-        
+
         while True:
-            print(f"\n--- Collection run at {datetime.utcnow()} ---")
-            await collect_data(collector, db_writer, SYMBOLS)
+            print(f"\n--- Collection run at {datetime.now(timezone.utc)} ---")
+            await collect_data(collector, db_writer)
             await asyncio.sleep(COLLECTION_INTERVAL)
             
     except KeyboardInterrupt:
