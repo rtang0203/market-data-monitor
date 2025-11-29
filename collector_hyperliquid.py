@@ -14,8 +14,7 @@ DB_CONFIG = {
 }
 
 # Collection settings
-SYMBOLS = ['BTC', 'ETH', 'SOL']  # Update with Hyperliquid format when ready
-COLLECTION_INTERVAL = 60  # seconds
+COLLECTION_INTERVAL = 1800  # seconds (30 minutes)
 
 
 class HyperliquidCollector:
@@ -91,7 +90,7 @@ class DatabaseWriter:
     def __init__(self, config):
         self.config = config
         self.conn = None
-        
+
     def connect(self):
         """Connect to PostgreSQL database"""
         try:
@@ -100,21 +99,44 @@ class DatabaseWriter:
         except Exception as e:
             print(f"Database connection error: {e}")
             raise
-    
+
+    def is_connected(self):
+        """Check if database connection is alive"""
+        if not self.conn:
+            return False
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT 1')
+            cursor.close()
+            return True
+        except Exception:
+            return False
+
+    def ensure_connection(self):
+        """Ensure database connection is alive, reconnect if needed"""
+        if not self.is_connected():
+            print("Database connection lost, reconnecting...")
+            try:
+                if self.conn:
+                    self.conn.close()
+            except Exception:
+                pass
+            self.connect()
+
     def insert_market_data(self, data):
         """Insert market data into database"""
         if not data:
             return
-            
+
         try:
             cursor = self.conn.cursor()
-            
+
             query = """
-                INSERT INTO market_data 
+                INSERT INTO market_data
                 (time, exchange, symbol, price, volume_24h, open_interest, funding_rate, bid, ask)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
-            
+
             cursor.execute(query, (
                 data['time'],
                 data['exchange'],
@@ -126,15 +148,57 @@ class DatabaseWriter:
                 data['bid'],
                 data['ask']
             ))
-            
+
             self.conn.commit()
             cursor.close()
             print(f"Inserted data for {data['symbol']} at {data['time']}")
-            
+
         except Exception as e:
             print(f"Error inserting data: {e}")
             self.conn.rollback()
-    
+
+    def insert_market_data_batch(self, data_list):
+        """Insert multiple market data records in a single transaction"""
+        if not data_list:
+            return
+
+        try:
+            cursor = self.conn.cursor()
+
+            query = """
+                INSERT INTO market_data
+                (time, exchange, symbol, price, volume_24h, open_interest, funding_rate, bid, ask)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+
+            # Prepare batch data
+            batch_data = [
+                (
+                    data['time'],
+                    data['exchange'],
+                    data['symbol'],
+                    data['price'],
+                    data['volume_24h'],
+                    data['open_interest'],
+                    data['funding_rate'],
+                    data['bid'],
+                    data['ask']
+                )
+                for data in data_list
+            ]
+
+            # Execute batch insert
+            cursor.executemany(query, batch_data)
+            self.conn.commit()
+            cursor.close()
+
+            print(f"Batch inserted {len(data_list)} symbols at {data_list[0]['time'] if data_list else 'unknown time'}")
+
+        except Exception as e:
+            print(f"Error batch inserting data: {e}")
+            self.conn.rollback()
+            raise
+
     def close(self):
         """Close database connection"""
         if self.conn:
@@ -144,16 +208,17 @@ class DatabaseWriter:
 
 async def collect_data(collector, db_writer):
     """Collect data for all symbols from Hyperliquid"""
+    # Ensure database connection is alive
+    db_writer.ensure_connection()
+
     async with aiohttp.ClientSession() as session:
         # Hyperliquid returns all symbols in one API call
         results = await collector.fetch_market_data(session)
 
-        # Insert results into database
+        # Batch insert all results into database
         if results:
-            for symbol in SYMBOLS:
-                result = results.get(symbol)
-                if result:
-                    db_writer.insert_market_data(result)
+            data_list = list(results.values())
+            db_writer.insert_market_data_batch(data_list)
 
 
 async def main():
