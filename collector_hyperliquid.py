@@ -1,20 +1,21 @@
 import asyncio
 import aiohttp
 import psycopg2
+import os
 from datetime import datetime, timezone
 from decimal import Decimal
 
-# Database connection config
+# Database connection config (reads from env vars with defaults for local dev)
 DB_CONFIG = {
-    'dbname': 'market_data',
-    'user': 'postgres',
-    'password': 'developmentPassword',
-    'host': 'localhost',
-    'port': 5432
+    'dbname': os.getenv('DB_NAME', 'market_data'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', 'developmentPassword'),
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'port': int(os.getenv('DB_PORT', '5432'))
 }
 
-# Collection settings
-COLLECTION_INTERVAL = 1800  # seconds (30 minutes)
+# Collection settings (reads from env var with default)
+COLLECTION_INTERVAL = int(os.getenv('COLLECTION_INTERVAL', '1800'))  # seconds (30 minutes)
 
 
 class HyperliquidCollector:
