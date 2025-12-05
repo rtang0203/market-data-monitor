@@ -15,12 +15,14 @@ This is a market data monitoring system that collects cryptocurrency market data
 - ✅ Collecting **all symbols** from Hyperliquid every **30 minutes**
 - ✅ Storing funding rates, open interest, volume, and pricing data
 - ✅ Running 24/7 with Docker Compose auto-restart
+- ✅ **Web dashboard** displaying top 10 long/short opportunities by 3-day average funding rates
 
 ## Architecture
 
 - **Data Collection**: Asynchronous Python collectors that fetch market data from exchange APIs
 - **Storage**: PostgreSQL/TimescaleDB database with optimized schema for time-series market data
-- **Deployment**: Docker Compose orchestrating database and collector containers
+- **Web Dashboard**: FastAPI backend + vanilla HTML/CSS/JS frontend for visualizing funding rate opportunities
+- **Deployment**: Docker Compose orchestrating database, collector, and dashboard containers
 - **Database Schema**: Single `market_data` table storing exchange, symbol, pricing, and volume data with time-series indexing
 - **Collection Strategy**: Batch insert all symbols (200+) every 30 minutes for long-term trend analysis
 
@@ -30,6 +32,10 @@ This is a market data monitoring system that collects cryptocurrency market data
   - `HyperliquidCollector`: Handles API calls and data parsing
   - `DatabaseWriter`: Manages PostgreSQL connections and data insertion
   - Async collection loop with configurable intervals
+- `api/`: Web dashboard service
+  - `main.py`: FastAPI backend with `/api/funding-rates` endpoint
+  - `static/index.html`: Frontend dashboard UI with dark theme
+  - Calculates 3-day average funding rates and returns top 10 long/short opportunities
 - `init.sql`: Database schema initialization script
 
 ## Local Development
@@ -61,7 +67,10 @@ docker-compose up -d
 
 # Update deployment (when code changes)
 git pull
-docker-compose up -d --build collector
+docker-compose up -d --build
+
+# Access dashboard
+# http://YOUR_DROPLET_IP:8080
 ```
 
 **Configuration:**
@@ -108,23 +117,15 @@ docker-compose up -d --build collector
 
 ## Next Steps
 
-### Web Dashboard (Planned)
-Create a web-based dashboard to analyze and visualize collected data:
+### Dashboard Enhancements
+The basic funding rate dashboard is complete and deployed. Potential improvements:
 
-**Features to implement:**
-- Display 3-day rolling averages for funding rates, open interest, and volume
-- Historical charts and trend analysis
-- Symbol comparison and filtering
-- Real-time data refresh
-- Export capabilities
-
-**Tech stack options:**
-- **Backend**: FastAPI or Flask (Python) to query PostgreSQL
-- **Frontend**: React, Vue, or simple HTML/JavaScript with Chart.js
-- **Deployment**: Add to existing docker-compose.yml as web service
-- **Access**: Expose via Nginx reverse proxy with optional authentication
-
-**Database queries needed:**
-- 3-day averages: `AVG(funding_rate) OVER (PARTITION BY symbol ORDER BY time ROWS BETWEEN 144 PRECEDING AND CURRENT ROW)`
-- Time-series aggregations for charts
-- Symbol filtering and search
+- **Configurable time windows**: Add 1-day, 3-day, 7-day, and 30-day average options
+- **Volume and OI filters**: Filter symbols by minimum volume or open interest thresholds
+- **Alerts for extreme funding rates**: Email/webhook notifications when funding rates exceed thresholds
+- **Historical charts**: Add Chart.js or similar to show funding rate trends over time
+- **Symbol search and filtering**: Search bar and filters for specific symbols
+- **Export capabilities**: CSV/JSON export of current data
+- **Code organization**: Reorganize collector service into `collector/` folder (similar to `api/` structure)
+- **Authentication**: Add basic auth for public deployment
+- **Mobile optimization**: Improve responsive design for mobile devices
