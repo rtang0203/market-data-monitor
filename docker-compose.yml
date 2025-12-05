@@ -41,6 +41,27 @@ services:
     networks:
       - default
 
+  # Funding Rate Dashboard
+  dashboard:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: funding_dashboard
+    restart: unless-stopped
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-market_data}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-developmentPassword}
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - default
+
 volumes:
   postgres_data:
     driver: local
