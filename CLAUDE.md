@@ -3,6 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ##Instructions
+
 - When writing code, please try to keep it as simple and readable as possible without introducing unnecessary complexity or verbosity.
 - use datetime.datetime.now(datetime.timezone.utc) instead of datetime.datetime.utcnow()
 
@@ -11,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is a market data monitoring system that collects cryptocurrency market data from exchanges and stores it in a PostgreSQL database. The current implementation includes a Hyperliquid exchange data collector.
 
 **Current Status:**
+
 - ✅ **Deployed on DigitalOcean** (production)
 - ✅ Collecting **all symbols** from Hyperliquid every **30 minutes**
 - ✅ Storing funding rates, open interest, volume, and pricing data
@@ -74,6 +76,7 @@ docker-compose up -d --build
 ```
 
 **Configuration:**
+
 - Database credentials stored in `.env` file (not in git)
 - Environment variables for flexible configuration
 - Auto-restart enabled for reliability
@@ -88,14 +91,17 @@ docker-compose up -d --build
 **Request Body**: `{"type": "metaAndAssetCtxs"}`
 
 **Response Structure**:
+
 - Returns array with two elements:
   - `[0]`: Universe metadata (symbol names, decimals, max leverage)
   - `[1]`: Market data array (one object per symbol in universe order)
 
 **Universe Fields**:
+
 - 'name': Symbol name
 
 **Market Data Fields**:
+
 - `dayNtlVlm`: 24h notional volume
 - `funding`: Current funding rate
 - `impactPxs`: [bid impact price, ask impact price]
@@ -117,15 +123,18 @@ docker-compose up -d --build
 
 ## Next Steps
 
+### Clear Old Data from DB
+
+- the DigitalOcean droplet is running out of space. clear old data periodically
+
 ### Dashboard Enhancements
+
 The basic funding rate dashboard is complete and deployed. Potential improvements:
 
-- **Configurable time windows**: Add 1-day, 3-day, 7-day, and 30-day average options
+- **Configurable time windows**: Add 1-day, current average options
 - **Volume and OI filters**: Filter symbols by minimum volume or open interest thresholds
 - **Alerts for extreme funding rates**: Email/webhook notifications when funding rates exceed thresholds
 - **Historical charts**: Add Chart.js or similar to show funding rate trends over time
 - **Symbol search and filtering**: Search bar and filters for specific symbols
-- **Export capabilities**: CSV/JSON export of current data
 - **Code organization**: Reorganize collector service into `collector/` folder (similar to `api/` structure)
 - **Authentication**: Add basic auth for public deployment
-- **Mobile optimization**: Improve responsive design for mobile devices
