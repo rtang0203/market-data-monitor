@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database with TimescaleDB
   database:
@@ -21,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Market Data Collector
+  # Market Data Collector (Hyperliquid Direct)
   collector:
     build:
       context: .
@@ -35,6 +33,28 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-developmentPassword}
       COLLECTION_INTERVAL: ${COLLECTION_INTERVAL:-1800}
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - default
+
+  # Lighter API Funding Rates Collector
+  collector-lighter:
+    build:
+      context: .
+      dockerfile: Dockerfile.lighter
+    container_name: lighter_collector
+    restart: unless-stopped
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-market_data}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-developmentPassword}
+      LIGHTER_COLLECTION_INTERVAL: ${LIGHTER_COLLECTION_INTERVAL:-1800}
+      PYTHONUNBUFFERED: 1
     depends_on:
       database:
         condition: service_healthy

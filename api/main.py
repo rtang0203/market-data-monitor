@@ -110,6 +110,102 @@ async def get_funding_rates() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/funding-rates-by-exchange")
+async def get_funding_rates_by_exchange() -> Dict[str, Any]:
+    """
+    Get top 10 long and short opportunities per exchange based on 3-day average funding rates.
+
+    Returns:
+        {
+            "binance_lighter": {
+                "long_opportunities": [...],
+                "short_opportunities": [...]
+            },
+            "bybit_lighter": {...},
+            "hyperliquid_lighter": {...},
+            "hyperliquid": {...},
+            "lighter": {...},
+            "last_updated": ISO timestamp
+        }
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Query to calculate 3-day average funding rates for all exchanges
+        query = """
+            WITH recent_data AS (
+                SELECT
+                    exchange,
+                    symbol,
+                    funding_rate,
+                    time,
+                    ROW_NUMBER() OVER (PARTITION BY exchange, symbol ORDER BY time DESC) as rn
+                FROM market_data
+                WHERE time > NOW() - INTERVAL '3 days'
+                    AND funding_rate IS NOT NULL
+            )
+            SELECT
+                exchange,
+                symbol,
+                AVG(funding_rate) as avg_funding_rate,
+                COUNT(*) as data_points
+            FROM recent_data
+            WHERE rn <= 144  -- 3 days * 48 intervals/day (30 min)
+            GROUP BY exchange, symbol
+            ORDER BY exchange, avg_funding_rate ASC;
+        """
+
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        # Convert to list of dicts with float conversion
+        all_data = [
+            {
+                "exchange": row['exchange'],
+                "symbol": row['symbol'],
+                "avg_funding_rate": float(row['avg_funding_rate']),
+                "data_points": int(row['data_points'])
+            }
+            for row in results
+        ]
+
+        # Filter and sort by exchange using application-side logic
+        response = {}
+        exchanges = ['binance_lighter', 'bybit_lighter', 'hyperliquid_lighter', 'lighter', 'hyperliquid']
+
+        for exchange in exchanges:
+            exchange_data = [r for r in all_data if r['exchange'] == exchange]
+
+            # Sort ascending for long opportunities (most negative rates)
+            long_opps = sorted(exchange_data, key=lambda x: x['avg_funding_rate'])[:10]
+
+            # Sort descending for short opportunities (most positive rates)
+            short_opps = sorted(exchange_data, key=lambda x: x['avg_funding_rate'], reverse=True)[:10]
+
+            response[exchange] = {
+                'long_opportunities': long_opps,
+                'short_opportunities': short_opps
+            }
+        
+        # # NOW pop exchange from all responses
+        # for exchange_data in response.values():
+        #     for record in exchange_data['long_opportunities'] + exchange_data['short_opportunities']:
+        #         record.pop('exchange', None)
+
+        response['last_updated'] = datetime.now(timezone.utc).isoformat()
+
+        return response
+
+    except Exception as e:
+        import traceback
+        logger.error(f"Error fetching funding rates by exchange: {e}")
+        logger.error(traceback.format_exc())  # Add this line for full traceback
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""

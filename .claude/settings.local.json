@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:apidocs.lighter.xyz)",
+      "Bash(curl:*)"
+    ]
+  }
+}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hyperliquid Funding Rates</title>
+    <title>Multi-Exchange Funding Rates</title>
     <style>
         * {
             margin: 0;
@@ -25,7 +25,7 @@
 
         header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
 
         h1 {
@@ -53,6 +53,61 @@
             color: #ff6b6b;
         }
 
+        /* Exchange Tabs */
+        .exchange-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            border: 2px solid #1a1f2e;
+            border-radius: 8px;
+            background-color: #151923;
+            color: #888;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab:hover {
+            background-color: #1a1f2e;
+            color: #e0e0e0;
+        }
+
+        .tab.active {
+            color: #ffffff;
+            background-color: #1a1f2e;
+        }
+
+        /* Exchange-specific border colors for active tabs */
+        .tab.active[data-exchange="binance_lighter"] {
+            border-color: #f0b90b;
+            box-shadow: 0 0 10px rgba(240, 185, 11, 0.3);
+        }
+
+        .tab.active[data-exchange="bybit_lighter"] {
+            border-color: #ff9500;
+            box-shadow: 0 0 10px rgba(255, 149, 0, 0.3);
+        }
+
+        .tab.active[data-exchange="hyperliquid"],
+        .tab.active[data-exchange="hyperliquid_lighter"] {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+        }
+
+        .tab.active[data-exchange="lighter"] {
+            border-color: #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
         .tables-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -63,6 +118,16 @@
         @media (max-width: 968px) {
             .tables-container {
                 grid-template-columns: 1fr;
+            }
+
+            .exchange-tabs {
+                overflow-x: auto;
+                justify-content: flex-start;
+                padding-bottom: 10px;
+            }
+
+            .tab {
+                flex-shrink: 0;
             }
         }
 
@@ -170,9 +235,18 @@
 <body>
     <div class="container">
         <header>
-            <h1>Hyperliquid Funding Rates</h1>
+            <h1>Multi-Exchange Funding Rates</h1>
             <div class="last-updated" id="lastUpdated">Loading...</div>
         </header>
+
+        <!-- Exchange Tabs -->
+        <div class="exchange-tabs">
+            <button class="tab active" data-exchange="hyperliquid">Hyperliquid (Direct)</button>
+            <button class="tab" data-exchange="binance_lighter">Binance</button>
+            <button class="tab" data-exchange="bybit_lighter">Bybit</button>
+            <button class="tab" data-exchange="hyperliquid_lighter">Hyperliquid (Lighter)</button>
+            <button class="tab" data-exchange="lighter">Lighter</button>
+        </div>
 
         <div id="content">
             <div class="loading">Loading funding rates...</div>
@@ -181,6 +255,17 @@
 
     <script>
         let lastFetchTime = null;
+        let currentExchange = 'hyperliquid';  // Default to direct Hyperliquid
+        let allExchangeData = {};  // Cache all exchange data
+
+        // Exchange display names
+        const exchangeNames = {
+            'hyperliquid': 'Hyperliquid (Direct)',
+            'binance_lighter': 'Binance',
+            'bybit_lighter': 'Bybit',
+            'hyperliquid_lighter': 'Hyperliquid (Lighter API)',
+            'lighter': 'Lighter'
+        };
 
         // Format funding rate as percentage
         function formatFundingRate(rate) {
@@ -213,7 +298,8 @@
         function updateLastUpdatedDisplay() {
             if (lastFetchTime) {
                 const timeAgo = getTimeAgo(lastFetchTime);
-                document.getElementById('lastUpdated').textContent = `Last updated: ${timeAgo}`;
+                const exchangeName = exchangeNames[currentExchange] || currentExchange;
+                document.getElementById('lastUpdated').textContent = `${exchangeName} - Last updated: ${timeAgo}`;
             }
         }
 
@@ -223,6 +309,15 @@
             const headerClass = isLong ? 'long' : 'short';
             const headerText = isLong ? 'Top 10 Long Opportunities' : 'Top 10 Short Opportunities';
 
+            if (!data || data.length === 0) {
+                return `
+                    <div class="table-wrapper">
+                        <div class="table-header ${headerClass}">${headerText}</div>
+                        <div class="error" style="padding: 20px;">No data available yet. Data collection in progress...</div>
+                    </div>
+                `;
+            }
+
             let html = `
                 <div class="table-wrapper">
                     <div class="table-header ${headerClass}">${headerText}</div>
@@ -230,7 +325,7 @@
                         <thead>
                             <tr>
                                 <th class="center">Rank</th>
-                                <th>Coin</th>
+                                <th>Symbol</th>
                                 <th>Funding 3D Avg</th>
                                 <th class="center">Data Status</th>
                             </tr>
@@ -239,14 +334,14 @@
             `;
 
             data.forEach((item, index) => {
-                const fundingClass = item.funding_3d_avg < 0 ? 'negative' : 'positive';
+                const fundingClass = item.avg_funding_rate < 0 ? 'negative' : 'positive';
                 const statusClass = item.data_points >= 100 ? 'complete' : '';
 
                 html += `
                     <tr>
                         <td class="center rank">${index + 1}</td>
                         <td class="symbol">${item.symbol}</td>
-                        <td class="funding-rate ${fundingClass}">${formatFundingRate(item.funding_3d_avg)}</td>
+                        <td class="funding-rate ${fundingClass}">${formatFundingRate(item.avg_funding_rate)}</td>
                         <td class="center data-status ${statusClass}">${formatDataStatus(item.data_points)}</td>
                     </tr>
                 `;
@@ -261,33 +356,56 @@
             return html;
         }
 
+        // Render current exchange data
+        function renderExchangeData() {
+            const contentDiv = document.getElementById('content');
+            const exchangeData = allExchangeData[currentExchange];
+
+            if (!exchangeData) {
+                contentDiv.innerHTML = '<div class="loading">No data available for this exchange yet.</div>';
+                return;
+            }
+
+            contentDiv.innerHTML = `
+                <div class="tables-container">
+                    ${createTable(exchangeData.long_opportunities, 'long')}
+                    ${createTable(exchangeData.short_opportunities, 'short')}
+                </div>
+            `;
+
+            updateLastUpdatedDisplay();
+        }
+
+        // Tab switching logic
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Update current exchange and render
+                currentExchange = tab.dataset.exchange;
+                renderExchangeData();
+            });
+        });
+
         // Fetch and display data
         async function fetchFundingRates() {
             try {
-                const response = await fetch('/api/funding-rates');
+                const response = await fetch('/api/funding-rates-by-exchange');
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                lastFetchTime = data.updated_at;
+                lastFetchTime = data.last_updated;
 
-                const contentDiv = document.getElementById('content');
+                // Cache all exchange data
+                allExchangeData = data;
 
-                if (data.top_10_long.length === 0 && data.top_10_short.length === 0) {
-                    contentDiv.innerHTML = '<div class="error">No funding rate data available yet. Please wait for data collection to begin.</div>';
-                    return;
-                }
-
-                contentDiv.innerHTML = `
-                    <div class="tables-container">
-                        ${createTable(data.top_10_long, 'long')}
-                        ${createTable(data.top_10_short, 'short')}
-                    </div>
-                `;
-
-                updateLastUpdatedDisplay();
+                // Render current exchange
+                renderExchangeData();
 
             } catch (error) {
                 console.error('Error fetching funding rates:', error);
