@@ -1,5 +1,4 @@
 services:
-  # PostgreSQL Database with TimescaleDB
   database:
     image: timescale/timescaledb:latest-pg15
     container_name: crypto_db
@@ -13,79 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Market Data Collector (Hyperliquid Direct)
-  collector:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: rtang0203/market-collector:latest
-    container_name: market_data_collector
-    restart: unless-stopped
-    environment:
-      DB_HOST: database
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-market_data}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-developmentPassword}
-      COLLECTION_INTERVAL: ${COLLECTION_INTERVAL:-1800}
-      PYTHONUNBUFFERED: 1
-    depends_on:
-      database:
-        condition: service_healthy
-    networks:
-      - default
-
-  # Lighter API Funding Rates Collector
-  collector-lighter:
-    build:
-      context: .
-      dockerfile: Dockerfile.lighter
-    image: rtang0203/lighter-collector:latest
-    container_name: lighter_collector
-    restart: unless-stopped
-    environment:
-      DB_HOST: database
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-market_data}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-developmentPassword}
-      LIGHTER_COLLECTION_INTERVAL: ${LIGHTER_COLLECTION_INTERVAL:-1800}
-      PYTHONUNBUFFERED: 1
-    depends_on:
-      database:
-        condition: service_healthy
-    networks:
-      - default
-
-  # Funding Rate Dashboard
-  dashboard:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    image: rtang0203/funding-dashboard:latest
-    container_name: funding_dashboard
-    restart: unless-stopped
-    environment:
-      DB_HOST: database
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-market_data}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-developmentPassword}
-    ports:
-      - "8080:8080"
-    depends_on:
-      database:
-        condition: service_healthy
-    networks:
-      - default
 
 volumes:
   postgres_data:
     driver: local
-

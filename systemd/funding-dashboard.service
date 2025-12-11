@@ -1,0 +1,16 @@
+[Unit]
+Description=Funding Rate Dashboard API
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/market-data-monitor/api
+EnvironmentFile=/root/market-data-monitor/.env
+ExecStart=/root/market-data-monitor/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Hyperliquid Funding Rate Collector
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/market-data-monitor
+EnvironmentFile=/root/market-data-monitor/.env
+ExecStart=/root/market-data-monitor/venv/bin/python collector_hyperliquid.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
