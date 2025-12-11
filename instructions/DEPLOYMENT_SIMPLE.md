@@ -108,7 +108,7 @@ Type=simple
 User=root
 WorkingDirectory=/root/market-data-monitor
 EnvironmentFile=/root/market-data-monitor/.env
-ExecStart=/root/market-data-monitor/venv/bin/python collector_hyperliquid.py
+ExecStart=/root/market-data-monitor/.venv/bin/python collector_hyperliquid.py
 Restart=always
 RestartSec=10
 
@@ -129,7 +129,7 @@ Type=simple
 User=root
 WorkingDirectory=/root/market-data-monitor
 EnvironmentFile=/root/market-data-monitor/.env
-ExecStart=/root/market-data-monitor/venv/bin/python collector_lighter.py
+ExecStart=/root/market-data-monitor/.venv/bin/python collector_lighter.py
 Restart=always
 RestartSec=10
 
@@ -150,7 +150,7 @@ Type=simple
 User=root
 WorkingDirectory=/root/market-data-monitor/api
 EnvironmentFile=/root/market-data-monitor/.env
-ExecStart=/root/market-data-monitor/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080
+ExecStart=/root/market-data-monitor/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=10
 
