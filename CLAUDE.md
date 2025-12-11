@@ -2,130 +2,96 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-##Instructions
+## Instructions
 
-- When writing code, please try to keep it as simple and readable as possible without introducing unnecessary complexity or verbosity.
-- use datetime.datetime.now(datetime.timezone.utc) instead of datetime.datetime.utcnow()
+- Keep code simple and readable without unnecessary complexity
+- Use `datetime.datetime.now(datetime.timezone.utc)` instead of `datetime.datetime.utcnow()`
 
 ## Project Overview
 
-This is a market data monitoring system that collects cryptocurrency market data from exchanges and stores it in a PostgreSQL database. The current implementation includes a Hyperliquid exchange data collector.
+Market data monitoring system that collects cryptocurrency funding rates from exchanges and stores them in PostgreSQL/TimescaleDB.
 
 **Current Status:**
-
-- ✅ **Deployed on DigitalOcean** (production)
-- ✅ Collecting **all symbols** from Hyperliquid every **30 minutes**
-- ✅ Storing funding rates, open interest, volume, and pricing data
-- ✅ Running 24/7 with Docker Compose auto-restart
-- ✅ **Web dashboard** displaying top 10 long/short opportunities by 3-day average funding rates
+- ✅ Deployed on DigitalOcean droplet
+- ✅ Collecting from Hyperliquid (direct) and Lighter API (Binance, Bybit, Hyperliquid, Lighter)
+- ✅ Web dashboard at port 8080
+- ✅ Auto-cleanup of data older than 7 days via cron
 
 ## Architecture
 
-- **Data Collection**: Asynchronous Python collectors that fetch market data from exchange APIs
-- **Storage**: PostgreSQL/TimescaleDB database with optimized schema for time-series market data
-- **Web Dashboard**: FastAPI backend + vanilla HTML/CSS/JS frontend for visualizing funding rate opportunities
-- **Deployment**: Docker Compose orchestrating database, collector, and dashboard containers
-- **Database Schema**: Single `market_data` table storing exchange, symbol, pricing, and volume data with time-series indexing
-- **Collection Strategy**: Batch insert all symbols (200+) every 30 minutes for long-term trend analysis
+- **Database**: TimescaleDB in Docker container
+- **Collectors**: Python scripts running via systemd
+- **Dashboard**: FastAPI + vanilla HTML/JS running via systemd
+- **Data retention**: 7 days (cron job cleans old data daily)
 
-## Key Components
+## Key Files
 
-- `collector_hyperliquid.py`: Main data collector for Hyperliquid exchange
-  - `HyperliquidCollector`: Handles API calls and data parsing
-  - `DatabaseWriter`: Manages PostgreSQL connections and data insertion
-  - Async collection loop with configurable intervals
-- `api/`: Web dashboard service
-  - `main.py`: FastAPI backend with `/api/funding-rates` endpoint
-  - `static/index.html`: Frontend dashboard UI with dark theme
-  - Calculates 3-day average funding rates and returns top 10 long/short opportunities
-- `init.sql`: Database schema initialization script
+- `collector_hyperliquid.py` - Hyperliquid direct API collector
+- `collector_lighter.py` - Lighter API collector (multiple exchanges)
+- `api/main.py` - FastAPI dashboard backend
+- `api/static/index.html` - Dashboard frontend
+- `docker-compose.yml` - Database only
+- `systemd/` - Service files for collectors and dashboard
+- `init.sql` - Database schema
 
 ## Local Development
-
 ```bash
-# Start with docker-compose
+# Start database
 docker-compose up -d
+
+# Set up Python environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run collectors (in separate terminals)
+export $(cat .env | xargs)
+python collector_hyperliquid.py
+python collector_lighter.py
+
+# Run dashboard
+cd api
+uvicorn main:app --host 0.0.0.0 --port 8080
+```
+
+## Deployment (Droplet)
+```bash
+# SSH in
+ssh root@YOUR_DROPLET_IP
+cd ~/market-data-monitor
+
+# Update code
+git pull
+
+# Restart services
+systemctl restart collector-hyperliquid collector-lighter funding-dashboard
+
+# Check status
+systemctl status collector-hyperliquid
+journalctl -u collector-hyperliquid -f
+```
+
+## Environment Variables
+
+Configured in `.env` (not in git):
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- `COLLECTION_INTERVAL`, `LIGHTER_COLLECTION_INTERVAL`
+
+## Useful Commands
+```bash
+# Check services
+systemctl status collector-hyperliquid collector-lighter funding-dashboard
 
 # View logs
-docker-compose logs -f collector
+journalctl -u collector-hyperliquid -f
 
-# Check data
+# Database queries
 docker exec crypto_db psql -U postgres -d market_data -c "SELECT COUNT(*) FROM market_data;"
+
+# Check disk usage
+df -h
 ```
-
-## Production Deployment (DigitalOcean)
-
-The application is deployed on DigitalOcean using Docker Compose:
-
-```bash
-# SSH into droplet
-ssh root@YOUR_DROPLET_IP
-
-# Navigate to project
-cd market-data-monitor
-
-# Start services
-docker-compose up -d
-
-# Update deployment (when code changes)
-git pull
-docker-compose up -d --build
-
-# Access dashboard
-# http://YOUR_DROPLET_IP:8080
-```
-
-**Configuration:**
-
-- Database credentials stored in `.env` file (not in git)
-- Environment variables for flexible configuration
-- Auto-restart enabled for reliability
-- Data persists in Docker volumes (safe during updates)
-
-## Hyperliquid API Endpoints
-
-#metaAndAssetCtxs -- can get current data for all symbols here
-
-**Endpoint**: `POST https://api.hyperliquid.xyz/info`
-**Headers**: `Content-Type: application/json`
-**Request Body**: `{"type": "metaAndAssetCtxs"}`
-
-**Response Structure**:
-
-- Returns array with two elements:
-  - `[0]`: Universe metadata (symbol names, decimals, max leverage)
-  - `[1]`: Market data array (one object per symbol in universe order)
-
-**Universe Fields**:
-
-- 'name': Symbol name
-
-**Market Data Fields**:
-
-- `dayNtlVlm`: 24h notional volume
-- `funding`: Current funding rate
-- `impactPxs`: [bid impact price, ask impact price]
-- `markPx`: Mark price
-- `midPx`: Mid price
-- `openInterest`: Open interest
-- `oraclePx`: Oracle price
-- `premium`: Premium rate
-- `prevDayPx`: Previous day price
-
-## Development Notes
-
-- Database configuration reads from environment variables (with localhost defaults for local dev)
-- Collection interval configurable via `COLLECTION_INTERVAL` environment variable (default: 1800 seconds)
-- Batch insert optimization for efficient database writes
-- Connection health checks and auto-reconnection for reliability
-- Unit tests available in `tests/` directory
-- The database schema supports optional TimescaleDB hypertable conversion for better time-series performance
-
 ## Next Steps
-
-### Clear Old Data from DB
-
-- the DigitalOcean droplet is running out of space. clear old data periodically
 
 ### Dashboard Enhancements
 

@@ -284,3 +284,44 @@ nano ~/market-data-monitor/.env
 # Restart services to pick up changes
 systemctl restart collector-hyperliquid collector-lighter funding-dashboard
 ```
+
+## Automatic Data Cleanup
+
+To prevent the droplet from running out of disk space, a cron job deletes data older than 7 days.
+
+### Setup (one-time on droplet)
+
+Create the cleanup script:
+```bash
+nano ~/market-data-monitor/cleanup_old_data.sh
+```
+```bash
+#!/bin/bash
+docker exec crypto_db psql -U postgres -d market_data -c "DELETE FROM market_data WHERE time < NOW() - INTERVAL '7 days';"
+echo "$(date): Cleaned up old data" >> /var/log/market-data-cleanup.log
+```
+
+Make it executable:
+```bash
+chmod +x ~/market-data-monitor/cleanup_old_data.sh
+```
+
+Add to cron (runs daily at 3am):
+```bash
+crontab -e
+```
+```
+0 3 * * * /root/market-data-monitor/cleanup_old_data.sh
+```
+
+### Monitoring
+```bash
+# Check cleanup history
+cat /var/log/market-data-cleanup.log
+
+# Check cron is set
+crontab -l
+
+# Check current data size
+docker exec crypto_db psql -U postgres -d market_data -c "SELECT COUNT(*) FROM market_data;"
+```
