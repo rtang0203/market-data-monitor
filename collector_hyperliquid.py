@@ -124,40 +124,6 @@ class DatabaseWriter:
                 pass
             self.connect()
 
-    def insert_market_data(self, data):
-        """Insert market data into database"""
-        if not data:
-            return
-
-        try:
-            cursor = self.conn.cursor()
-
-            query = """
-                INSERT INTO market_data
-                (time, exchange, symbol, price, volume_24h, open_interest, funding_rate, bid, ask)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-
-            cursor.execute(query, (
-                data['time'],
-                data['exchange'],
-                data['symbol'],
-                data['price'],
-                data['volume_24h'],
-                data['open_interest'],
-                data['funding_rate'],
-                data['bid'],
-                data['ask']
-            ))
-
-            self.conn.commit()
-            cursor.close()
-            print(f"Inserted data for {data['symbol']} at {data['time']}")
-
-        except Exception as e:
-            print(f"Error inserting data: {e}")
-            self.conn.rollback()
-
     def insert_market_data_batch(self, data_list):
         """Insert multiple market data records in a single transaction"""
         if not data_list:
