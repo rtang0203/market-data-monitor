@@ -9,3 +9,13 @@
 - **Files:** `api/main.py`
 - **Gate:** Baseline `python3 -m py_compile api/main.py` → PASS; post-edit same command → PASS
 - **Commit:** 7b6e3d1
+
+---
+
+### refactor: remove unused single-row insert_market_data method
+
+- **What:** Deleted the `insert_market_data()` method (34 lines) from `collector_hyperliquid.py`. This method performed single-row inserts into the `market_data` table but was never called; the codebase exclusively uses `insert_market_data_batch()` (called at line 222).
+- **Why:** Dead code — grep with word-boundary (`\binsert_market_data\b`) confirmed the symbol appeared only at its definition (line 127). `insert_market_data_batch` is a distinct name and was correctly preserved.
+- **Files:** `collector_hyperliquid.py`
+- **Gate:** Baseline `python3 -m py_compile collector_hyperliquid.py` → PASS; post-edit same command → PASS
+- **Commit:** `a4074d0`
