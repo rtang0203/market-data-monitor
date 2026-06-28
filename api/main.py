@@ -2,6 +2,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any
+import traceback
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, HTTPException
@@ -191,17 +192,12 @@ async def get_funding_rates_by_exchange() -> Dict[str, Any]:
                 'short_opportunities': short_opps
             }
         
-        # # NOW pop exchange from all responses
-        # for exchange_data in response.values():
-        #     for record in exchange_data['long_opportunities'] + exchange_data['short_opportunities']:
-        #         record.pop('exchange', None)
 
         response['last_updated'] = datetime.now(timezone.utc).isoformat()
 
         return response
 
     except Exception as e:
-        import traceback
         logger.error(f"Error fetching funding rates by exchange: {e}")
         logger.error(traceback.format_exc())  # Add this line for full traceback
         raise HTTPException(status_code=500, detail=str(e))
