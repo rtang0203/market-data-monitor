@@ -17,6 +17,10 @@ DB_CONFIG = {
 # Collection settings (reads from env var with default)
 COLLECTION_INTERVAL = int(os.getenv('COLLECTION_INTERVAL', '1800'))  # seconds (30 minutes)
 
+# Hyperliquid reports an hourly rate; store an 8-hour equivalent to match the
+# normalized rates returned by the Lighter funding-rates endpoint.
+HYPERLIQUID_FUNDING_PERIODS_PER_8H = Decimal(8)
+
 
 class HyperliquidCollector:
     def __init__(self):
@@ -78,7 +82,11 @@ class HyperliquidCollector:
                 'price': Decimal(market_info['markPx']) if market_info.get('markPx') else None,
                 'volume_24h': Decimal(market_info['dayNtlVlm']) if market_info.get('dayNtlVlm') else None,
                 'open_interest': Decimal(market_info['openInterest']) if market_info.get('openInterest') else None,
-                'funding_rate': Decimal(market_info['funding']) if market_info.get('funding') else None,
+                'funding_rate': (
+                    Decimal(market_info['funding']) * HYPERLIQUID_FUNDING_PERIODS_PER_8H
+                    if market_info.get('funding')
+                    else None
+                ),
                 'bid': bid,
                 'ask': ask
             }

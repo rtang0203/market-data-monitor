@@ -39,6 +39,14 @@
             color: #888;
         }
 
+        .rate-description {
+            max-width: 900px;
+            margin: 12px auto 0;
+            color: #aaa;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -237,6 +245,11 @@
         <header>
             <h1>Multi-Exchange Funding Rates</h1>
             <div class="last-updated" id="lastUpdated">Loading...</div>
+            <p class="rate-description">
+                Funding is a periodic payment between perpetual-futures traders that helps keep contract prices near spot.
+                Rates are normalized to an 8-hour equivalent: positive means longs pay shorts; negative means shorts pay longs.
+                Latest is the most recent 30-minute snapshot, while 3D Avg highlights persistent conditions across up to 144 snapshots.
+            </p>
         </header>
 
         <!-- Exchange Tabs -->
@@ -326,7 +339,8 @@
                             <tr>
                                 <th class="center">Rank</th>
                                 <th>Symbol</th>
-                                <th>Funding 3D Avg</th>
+                                <th>Latest (8H)</th>
+                                <th>3D Avg (8H)</th>
                                 <th class="center">Data Status</th>
                             </tr>
                         </thead>
@@ -334,14 +348,16 @@
             `;
 
             data.forEach((item, index) => {
-                const fundingClass = item.avg_funding_rate < 0 ? 'negative' : 'positive';
+                const latestFundingClass = item.latest_funding_rate < 0 ? 'negative' : 'positive';
+                const averageFundingClass = item.avg_funding_rate < 0 ? 'negative' : 'positive';
                 const statusClass = item.data_points >= 100 ? 'complete' : '';
 
                 html += `
                     <tr>
                         <td class="center rank">${index + 1}</td>
                         <td class="symbol">${item.symbol}</td>
-                        <td class="funding-rate ${fundingClass}">${formatFundingRate(item.avg_funding_rate)}</td>
+                        <td class="funding-rate ${latestFundingClass}">${formatFundingRate(item.latest_funding_rate)}</td>
+                        <td class="funding-rate ${averageFundingClass}">${formatFundingRate(item.avg_funding_rate)}</td>
                         <td class="center data-status ${statusClass}">${formatDataStatus(item.data_points)}</td>
                     </tr>
                 `;

@@ -150,6 +150,8 @@ async def get_funding_rates_by_exchange() -> Dict[str, Any]:
                 exchange,
                 symbol,
                 AVG(funding_rate) as avg_funding_rate,
+                MAX(funding_rate) FILTER (WHERE rn = 1) as latest_funding_rate,
+                MAX(time) FILTER (WHERE rn = 1) as latest_time,
                 COUNT(*) as data_points
             FROM recent_data
             WHERE rn <= 144  -- 3 days * 48 intervals/day (30 min)
@@ -169,6 +171,8 @@ async def get_funding_rates_by_exchange() -> Dict[str, Any]:
                 "exchange": row['exchange'],
                 "symbol": row['symbol'],
                 "avg_funding_rate": float(row['avg_funding_rate']),
+                "latest_funding_rate": float(row['latest_funding_rate']),
+                "latest_time": row['latest_time'].isoformat(),
                 "data_points": int(row['data_points'])
             }
             for row in results
