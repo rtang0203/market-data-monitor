@@ -87,3 +87,10 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# docs
+MEMORY.md 
+CLAUDE.md
+instructions/
+
+
