@@ -3,253 +3,372 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Exchange Funding Rates</title>
+    <title>Funding Dashboard — Eightfold Path</title>
     <style>
+        :root {
+            color-scheme: light;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #17202a;
+            background: #f4f1ea;
+            --ink: #17202a;
+            --muted: #56616b;
+            --surface: #fffdf8;
+            --border: #d4cec1;
+            --long: #26734d;
+            --long-soft: #edf6ef;
+            --short: #a33a3a;
+            --short-soft: #fbeeee;
+        }
+
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: #0a0e17;
-            color: #e0e0e0;
-            padding: 20px;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0 2rem 3rem;
+            background: #f4f1ea;
+            color: var(--ink);
         }
 
         .container {
-            max-width: 1400px;
+            width: min(100%, 80rem);
             margin: 0 auto;
         }
 
+        .site-nav {
+            min-height: 4.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand {
+            color: var(--ink);
+            font-size: 1.05rem;
+            font-weight: 750;
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .brand:hover {
+            text-decoration: underline;
+            text-underline-offset: 0.25rem;
+        }
+
+        .site-links {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+
+        .site-links a,
+        .site-links span {
+            padding: 0.45rem 0.7rem;
+            border-radius: 0.5rem;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .site-links a:hover,
+        .site-links a:focus-visible {
+            background: var(--surface);
+            color: var(--ink);
+        }
+
+        .site-links [aria-current="page"] {
+            background: var(--ink);
+            color: var(--surface);
+        }
+
         header {
-            text-align: center;
-            margin-bottom: 30px;
+            max-width: 56rem;
+            margin: 4rem 0 2.5rem;
+        }
+
+        .eyebrow {
+            margin: 0 0 0.75rem;
+            color: var(--muted);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
         }
 
         h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            color: #ffffff;
-        }
-
-        .last-updated {
-            font-size: 0.9rem;
-            color: #888;
+            margin: 0;
+            font-size: clamp(2.6rem, 6vw, 4.5rem);
+            line-height: 0.98;
+            letter-spacing: -0.045em;
         }
 
         .rate-description {
-            max-width: 900px;
-            margin: 12px auto 0;
-            color: #aaa;
-            font-size: 0.95rem;
-            line-height: 1.5;
+            margin: 1.25rem 0 1.5rem;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.65;
         }
 
-        .loading {
+        .dashboard-status {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--ink);
+            font-weight: 650;
+        }
+
+        .live-indicator::before {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            background: #3f8b61;
+            content: "";
+        }
+
+        .status-divider {
+            color: var(--border);
+        }
+
+        .loading,
+        .error {
+            padding: 3rem 1.5rem;
+            color: var(--muted);
             text-align: center;
-            padding: 40px;
-            font-size: 1.2rem;
-            color: #888;
         }
 
         .error {
-            text-align: center;
-            padding: 40px;
-            font-size: 1.2rem;
-            color: #ff6b6b;
+            color: var(--short);
         }
 
-        /* Exchange Tabs */
         .exchange-tabs {
             display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+            scrollbar-width: thin;
         }
 
         .tab {
-            padding: 12px 24px;
-            border: 2px solid #1a1f2e;
-            border-radius: 8px;
-            background-color: #151923;
-            color: #888;
-            font-size: 1rem;
-            font-weight: 600;
+            flex: 0 0 auto;
+            padding: 0.7rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.6rem;
+            background: var(--surface);
+            color: var(--muted);
+            font: inherit;
+            font-size: 0.875rem;
+            font-weight: 650;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            transition: border-color 150ms ease, color 150ms ease, transform 150ms ease;
         }
 
         .tab:hover {
-            background-color: #1a1f2e;
-            color: #e0e0e0;
+            border-color: var(--ink);
+            color: var(--ink);
+            transform: translateY(-1px);
+        }
+
+        .tab:focus-visible {
+            outline: 3px solid #88a2b8;
+            outline-offset: 2px;
         }
 
         .tab.active {
-            color: #ffffff;
-            background-color: #1a1f2e;
-        }
-
-        /* Exchange-specific border colors for active tabs */
-        .tab.active[data-exchange="binance_lighter"] {
-            border-color: #f0b90b;
-            box-shadow: 0 0 10px rgba(240, 185, 11, 0.3);
-        }
-
-        .tab.active[data-exchange="bybit_lighter"] {
-            border-color: #ff9500;
-            box-shadow: 0 0 10px rgba(255, 149, 0, 0.3);
-        }
-
-        .tab.active[data-exchange="hyperliquid"],
-        .tab.active[data-exchange="hyperliquid_lighter"] {
-            border-color: #8b5cf6;
-            box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
-        }
-
-        .tab.active[data-exchange="lighter"] {
-            border-color: #3b82f6;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+            border-color: var(--ink);
+            background: var(--ink);
+            color: var(--surface);
         }
 
         .tables-container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 20px;
-        }
-
-        @media (max-width: 968px) {
-            .tables-container {
-                grid-template-columns: 1fr;
-            }
-
-            .exchange-tabs {
-                overflow-x: auto;
-                justify-content: flex-start;
-                padding-bottom: 10px;
-            }
-
-            .tab {
-                flex-shrink: 0;
-            }
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
         }
 
         .table-wrapper {
-            background-color: #151923;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            min-width: 0;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            background: var(--surface);
         }
 
         .table-header {
-            padding: 20px;
-            font-size: 1.3rem;
-            font-weight: 600;
-            text-align: center;
+            position: sticky;
+            left: 0;
+            padding: 1.15rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.825rem;
+            font-weight: 750;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
-            letter-spacing: 1px;
         }
 
         .table-header.long {
-            background-color: #1a4d2e;
-            color: #4ade80;
+            background: var(--long-soft);
+            color: var(--long);
         }
 
         .table-header.short {
-            background-color: #4d1a1a;
-            color: #f87171;
+            background: var(--short-soft);
+            color: var(--short);
         }
 
         table {
             width: 100%;
+            min-width: 35rem;
             border-collapse: collapse;
         }
 
         th {
-            background-color: #1a1f2e;
-            padding: 15px 20px;
+            padding: 0.85rem 1rem;
+            background: #f8f5ee;
+            color: var(--muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.055em;
             text-align: left;
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: #888;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
-        th.center {
-            text-align: center;
-        }
-
-        td {
-            padding: 15px 20px;
-            border-top: 1px solid #1a1f2e;
-            font-size: 0.95rem;
-        }
-
+        th.center,
         td.center {
             text-align: center;
         }
 
-        tr:hover {
-            background-color: #1a1f2e;
+        td {
+            padding: 0.95rem 1rem;
+            border-top: 1px solid #e8e3d9;
+            font-size: 0.875rem;
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            transition: background-color 120ms ease;
+        }
+
+        tbody tr:hover {
+            background: #faf7f1;
         }
 
         .rank {
-            font-weight: 600;
-            color: #666;
+            color: #8a918f;
+            font-variant-numeric: tabular-nums;
         }
 
         .symbol {
-            font-weight: 600;
-            font-size: 1.05rem;
+            color: var(--ink);
+            font-weight: 700;
         }
 
         .funding-rate {
-            font-weight: 600;
-            font-size: 1.05rem;
+            font-weight: 650;
+            font-variant-numeric: tabular-nums;
         }
 
         .funding-rate.negative {
-            color: #4ade80;
+            color: var(--long);
         }
 
         .funding-rate.positive {
-            color: #f87171;
+            color: var(--short);
         }
 
         .data-status {
-            font-size: 0.85rem;
-            color: #888;
+            color: var(--muted);
+            font-size: 0.75rem;
         }
 
         .data-status.complete {
-            color: #4ade80;
+            color: var(--long);
         }
 
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding: 20px;
-            color: #666;
-            font-size: 0.85rem;
+        @media (max-width: 60rem) {
+            .tables-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 40rem) {
+            body {
+                padding: 0 1.25rem 2rem;
+            }
+
+            .site-nav {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.75rem;
+                padding: 1.1rem 0;
+            }
+
+            .site-links {
+                width: 100%;
+                overflow-x: auto;
+            }
+
+            .site-links a,
+            .site-links span {
+                white-space: nowrap;
+            }
+
+            header {
+                margin: 3rem 0 2rem;
+            }
+
+            h1 {
+                font-size: clamp(2.5rem, 14vw, 3.5rem);
+            }
+
+            .dashboard-status {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .status-divider {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <nav class="site-nav" aria-label="Eightfold Path">
+            <a class="brand" href="https://eightfoldpath.xyz">Eightfold Path</a>
+            <div class="site-links">
+                <a href="https://options.eightfoldpath.xyz">Options Screener</a>
+                <span aria-current="page">Funding Dashboard</span>
+            </div>
+        </nav>
+
         <header>
-            <h1>Multi-Exchange Funding Rates</h1>
-            <div class="last-updated" id="lastUpdated">Loading...</div>
+            <p class="eyebrow">Perpetual futures</p>
+            <h1>Funding Dashboard</h1>
             <p class="rate-description">
-                Funding is a periodic payment between perpetual-futures traders that helps keep contract prices near spot.
-                Rates are normalized to an 8-hour equivalent: positive means longs pay shorts; negative means shorts pay longs.
-                Latest is the most recent 30-minute snapshot, while 3D Avg highlights persistent conditions across up to 144 snapshots.
+                Compare funding across perpetual-futures venues. Rates are normalized to an 8-hour equivalent:
+                positive means longs pay shorts; negative means shorts pay longs. Latest is the most recent
+                30-minute snapshot, while the 3-day average highlights persistent conditions across up to 144 snapshots.
             </p>
+            <div class="dashboard-status">
+                <span class="live-indicator">Market data</span>
+                <span class="status-divider" aria-hidden="true">/</span>
+                <span class="last-updated" id="lastUpdated">Loading...</span>
+            </div>
         </header>
 
         <!-- Exchange Tabs -->
